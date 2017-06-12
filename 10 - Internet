@@ -21,3 +21,29 @@ Public Function GetIPAddress() As String
 
     GetIPAddress = strIPAddress
 End Function
+
+Sub test()
+    my_url = "http://www.immobilienscout24.de/expose/73940554"
+    Set html_doc = CreateObject("htmlfile")
+    Set xml_obj = CreateObject("MSXML2.XMLHTTP")
+
+    xml_obj.Open "GET", my_url, False
+    xml_obj.send
+    html_doc.body.innerhtml = xml_obj.responseText
+    Set xml_obj = Nothing
+
+    k_pice = html_doc.body.getElementsByTagName("dd")(0).innertext
+
+' Or
+
+    Set Results = html_doc.body.getElementsByTagName("dd")
+    For Each itm In Results
+        If InStr(1, itm.outerhtml, "EUR", vbTextCompare) > 0 Then
+            k_price = itm.innertext
+            Exit For
+        Else
+        End If
+    Next
+End Sub
+
+
