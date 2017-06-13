@@ -1,4 +1,4 @@
-Public Function GetIPAddress() As String
+Public Function getLocalIPInfo() As String
     Const strComputer As String = "."   ' Computer name. Dot means local computer
     Dim objWMIService, IPConfigSet, IPConfig, IPAddress, i
     Dim strIPAddress As String
@@ -20,6 +20,36 @@ Public Function GetIPAddress() As String
     Next
 
     GetIPAddress = strIPAddress
+End Function
+
+
+Function getPublicIP() As String
+
+    Dim HttpRequest As Object
+    
+    On Error Resume Next
+    'Create the XMLHttpRequest object.
+    Set HttpRequest = CreateObject("MSXML2.XMLHTTP")
+
+    'Check if the object was created.
+    If Err.Number <> 0 Then
+        'Return error message.
+        getPublicIP = "Could not create the XMLHttpRequest object!"
+        'Release the object and exit.
+        Set HttpRequest = Nothing
+        Exit Function
+    End If
+    On Error GoTo 0
+    
+    'Create the request - no special parameters required.
+    HttpRequest.Open "GET", "http://myip.dnsomatic.com", False
+    
+    'Send the request to the site.
+    HttpRequest.Send
+        
+    'Return the result of the request (the IP string).
+    getPublicIP = HttpRequest.ResponseText
+
 End Function
 
 Sub test()
