@@ -52,28 +52,77 @@ Function getPublicIP() As String
 
 End Function
 
-Sub test()
-    my_url = "http://www.immobilienscout24.de/expose/73940554"
-    Set html_doc = CreateObject("htmlfile")
-    Set xml_obj = CreateObject("MSXML2.XMLHTTP")
 
-    xml_obj.Open "GET", my_url, False
-    xml_obj.send
-    html_doc.body.innerhtml = xml_obj.responseText
-    Set xml_obj = Nothing
+Public Function Wget(sSourceUrl As String, sDestinationPath As String) As Boolean
+      'VBA function version of Wget.
+      'It takes a url (sSourceUrl) and downloads the URL to sDestinationPath.
 
-    k_pice = html_doc.body.getElementsByTagName("dd")(0).innertext
+        On Error GoTo Wget_Error
 
-' Or
+        With New WinHttpRequest
+              'Open a request to our source
+            .Open "GET", sSourceUrl
 
-    Set Results = html_doc.body.getElementsByTagName("dd")
-    For Each itm In Results
-        If InStr(1, itm.outerhtml, "EUR", vbTextCompare) > 0 Then
-            k_price = itm.innertext
-            Exit For
-        Else
-        End If
-    Next
+              'I need to set this to get it to go through the firewall
+            .SetAutoLogonPolicy AutoLogonPolicy_Always
+            '.SetProxy 2, "http://127.0.0.1:8888", "*.never"
+            .SetRequestHeader "Accept", "*/*"
+
+              'Set any options you may need http://msdn.microsoft.com/en-us/library/windows/desktop/aa384108(v=vs.85).aspx
+              'Set a custom useragent, not needed, but could be useful if there are problems on the server
+            .Option(WinHttpRequestOption_UserAgentString) = "Mozilla/4.0 (compatible; VBA Wget)"
+
+              'Automatically follow any redirects
+            .Option(WinHttpRequestOption_EnableRedirects) = "True"
+            .Send
+
+              'You could check .Status here to ensure you've received a proper repsonse
+              'You will also need to decide what to do if sDestinationPath exists. Here it just overwrites it
+
+              'Write the responseBody to a file
+              Dim ado As New ADODB.Stream
+            ado.Type = adTypeBinary
+            ado.Open
+            ado.Write .ResponseBody
+                ado.SaveToFile sDestinationPath, adSaveCreateOverWrite
+             ado.Close
+
+         End With
+
+    Wget = True    'download was successful
+Wget_Exit:
+        On Error Resume Next
+        Set ado = Nothing
+        Exit Function
+
+Wget_Error:
+        Wget = False    'An error occurred
+            Select Case Err
+          Case Else
+            Debug.Print "Unhandled Error in Wget", Err.Number, Err.Description, Err.Source, Erl()
+        End Select
+        Resume Wget_Exit
+        Resume
+End Function
+
+Private Sub dloadBth_Click()
+    Dim url As String
+    Dim lngCount As Long
+    Dim folderPath As String
+    
+    
+    ' Open the file dialog
+    With Application.FileDialog(msoFileDialogFolderPicker)
+        .AllowMultiSelect = False
+        .Show
+        folderPath = .SelectedItems(1)
+    End With
+    
+    url = Left(Me.Online_Version.Value, Len(Me.Online_Version.Value) - 1)
+    url = Right(url, Len(url) - 1)
+    Call Wget(url, folderPath & "\output.dat")
+    
 End Sub
+
 
 
