@@ -1,0 +1,12 @@
+Option Compare Database
+Option Explicit
+
+Sub writeToTextFile(ByVal filePath As String, ByVal content As String)
+    Dim rowStr As String
+    Dim fileNo As Integer
+    
+    fileNo = FreeFile 'Get first free file number
+    Open filePath For Output As #fileNo
+    Print #fileNo, content
+    Close #fileNo
+End Sub
