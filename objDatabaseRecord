@@ -1,0 +1,159 @@
+Option Compare Database
+Option Explicit
+
+'**********************************************
+' franckEinstein - 2017
+' class module objDatabaseRecord
+' *********************************************
+
+'*********************************************
+' Wrapper for table records that follow format: 
+' Table has name: tblXXXs and contains at least following fields named as 
+' -  ID  (Numerical)
+' -  XXXName String
+' where XXX is alphabetical. 
+'**********************************************
+'Used as composition inheritance, by several
+'other downstream class module
+
+
+Private m_table_name As String 'Name of table that contains the object
+Private m_name As String
+Private m_id As Long
+Private m_exists As Boolean 'True if the object exists in db
+
+Public Property Get ID() As Long
+    ID = m_id
+End Property
+
+Public Property Get name() As String
+    name = m_name
+End Property
+
+Public Property Get exists() As Boolean
+    exists = m_exists
+End Property
+
+Private Function name_col_tag() As String
+'deduces the name of the col that stores the name of the object
+'table name is in the form: tbl[obj type]s
+'and the colName is in the format: "[obj type]Name"
+    Dim n_c_t As String
+    n_c_t = Right(m_table_name, Len(m_table_name) - 3)
+    name_col_tag = Left(n_c_t, Len(n_c_t) - 1) & "Name"
+End Function
+
+Public Sub find_by_name()
+    Dim rs As DAO.Recordset
+    Set rs = CurrentDb.OpenRecordset("select ID from " & _
+        m_table_name & " where " & name_col_tag() & _
+        " = '" & m_name & "';")
+        
+    If rs.RecordCount < 1 Then
+        rs.Close
+        m_id = 0
+        m_exists = False
+        Exit Sub
+    End If
+    m_exists = True
+    m_id = rs.fields("ID")
+    rs.Close
+End Sub
+
+Public Function getRecord() As DAO.Recordset
+    If m_exists Then
+        Set getRecord = CurrentDb.OpenRecordset( _
+            "SELECT * FROM " & m_table_name & " WHERE ID = " & m_id & ";")
+        Exit Function
+    End If
+    Call Err.Raise(10015, "objDatabaseRecord::getRecord", "Couldn't find object in database")
+End Function
+
+Public Sub find_by_id()
+    Dim rs As DAO.Recordset
+    Dim name_col_title As String
+    name_col_title = name_col_tag()
+    Set rs = CurrentDb.OpenRecordset("SELECT " & name_col_title & " FROM " & _
+        m_table_name & " WHERE ID = " & _
+        m_id & " ;")
+        
+    If rs.RecordCount < 1 Then
+        rs.Close
+        m_name = ""
+        m_exists = False
+        Exit Sub
+    End If
+    m_exists = True
+    m_name = rs.fields(name_col_tag())
+    rs.Close
+End Sub
+
+Public Sub add_by_name()
+    If m_exists Then Exit Sub
+    Dim rst As DAO.Recordset
+    Set rst = CurrentDb.OpenRecordset(m_table_name)
+
+    rst.AddNew
+    rst(name_col_tag()) = m_name
+    rst.update
+    rst.Close
+    
+    Call find_by_name
+End Sub
+
+Public Function fieldValue(ByVal columnName As String) As String
+'Returns the value of a field in the record
+    Dim rs As DAO.Recordset
+    
+    If Not m_exists Then
+        Err.Raise "Non existing object"
+        Exit Function
+    End If
+    Set rs = CurrentDb.OpenRecordset("SELECT " & columnName & " FROM " & _
+        m_table_name & " WHERE ID = " & _
+        m_id & " ;")
+        
+    If rs.RecordCount < 1 Then
+        rs.Close
+        fieldValue = ""
+        Exit Function
+    End If
+    
+    fieldValue = rs.fields(columnName)
+    rs.Close
+End Function
+
+Public Sub remove_frm_db()
+    Dim rst As DAO.Recordset
+    
+    If Not m_exists Then Exit Sub
+        
+    Set rst = CurrentDb.OpenRecordset("SELECT * FROM " & _
+        m_table_name & " where ID " & _
+        " = " & m_id & ";")
+        
+    If rst.EOF Then Exit Sub
+    rst.Delete
+    rst.Close
+    Call find_by_name
+End Sub
+
+Public Sub initByID(ByVal table_name As String, ByVal obj_id As Long)
+    m_table_name = table_name
+    m_id = obj_id
+    Call find_by_id
+End Sub
+
+Public Sub init_by_name(ByVal table_name As String, ByVal obj_name As String)
+    m_table_name = table_name
+    m_name = obj_name
+    Call find_by_name
+End Sub
+
+'initializes and creates a new record
+Public Sub init_new(ByVal table_name As String, ByVal obj_name As String)
+    m_table_name = table_name
+    m_name = obj_name
+    Call add_by_name
+End Sub
+
