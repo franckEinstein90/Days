@@ -1,0 +1,147 @@
+Option Compare Database
+Option Explicit
+
+'**********************************************
+' Franck Binard - 2017
+' class module objFolderRecord
+' - inherits from objDatabaseRecord
+' *********************************************
+
+
+Private m_folderRecord As objDatabaseRecord
+Private parentFolderID As Long
+
+Public Function getID() As Long
+    getID = m_folderRecord.m_id
+End Function
+Private Function isRoot(pathElement() As String) As Boolean
+    Dim lastIdx As Long
+    lastIdx = UBound(pathElement)
+    
+    isRoot = (lastIdx = 1) And (pathElement(lastIdx) = "")
+End Function
+
+Private Function isFolder(pathElements() As String) As Boolean
+    Dim lastIdx As Integer
+    lastIdx = UBound(pathElements)
+    
+    isFolder = lastIdx > 1 And pathElements(lastIdx) = ""
+    
+End Function
+
+
+Private Function createNewFolderRecordFromPath(ByRef SD As objSharedDrive, ByVal path As String) As Long
+'Adds folder record to db for all
+'folders in path arguments when they
+'don't exist. Returns ID of the folder correponding to path
+
+    Dim rst As DAO.Recordset
+    
+    '*********************************
+    Dim pathElements() As String
+    Dim pathElementIDX As Integer
+    '*********************************
+    Dim currentFolder As String
+    Dim currentFolderID As Long
+    Dim ShareID As Long
+    
+    
+    
+    pathElements = Split(path, "\")
+    ShareID = SD.getID()
+    pathElementIDX = 1
+    
+    currentFolder = strDBProcess(pathElements(pathElementIDX))
+    Set rst = CurrentDb.OpenRecordset(sqlFolderSearchString(currentFolder, ShareID, True))
+    
+    '"SELECT tblFolders.[ID] FROM tblFolders WHERE " & _
+                "tblFolders.[FolderName] = '" & currentFolder & "'" & _
+                " AND tblFolders.[SharedDrive] = " & shareID & _
+                " AND tblFolders.[RootFolder] = TRUE ;")
+    
+    If rst.RecordCount < 1 Then
+        'couldn't find the root folder for this
+        'path in the database
+        rst.Close
+        Set rst = CurrentDb.OpenRecordset("tblFolders")
+        rst.AddNew
+        rst.fields("FolderName") = currentFolder
+        rst.fields("SharedDrive") = ShareID
+        rst.fields("RootFolder") = True
+        rst.update
+        rst.Bookmark = rst.lastModified
+        
+    End If
+        currentFolderID = rst.fields("ID")
+        rst.Close
+    
+    
+    pathElementIDX = pathElementIDX + 1
+    Do While pathElementIDX < UBound(pathElements)
+        currentFolder = strDBProcess(pathElements(pathElementIDX))
+        Set rst = CurrentDb.OpenRecordset("SELECT tblFolders.[ID] FROM tblFolders WHERE " & _
+                "tblFolders.[FolderName] = '" & currentFolder & "'" & _
+                " AND tblFolders.[SharedDrive] = " & ShareID & _
+                " AND tblFolders.[ParentFolderID] = " & currentFolderID & ";")
+        If rst.RecordCount < 1 Then
+            rst.Close
+            Set rst = CurrentDb.OpenRecordset("tblFolders")
+            rst.AddNew
+            rst.fields("FolderName") = currentFolder
+            rst.fields("SharedDrive") = ShareID
+            rst.fields("RootFolder") = False
+            rst.fields("ParentFolderID") = currentFolderID
+            rst.update
+            rst.Bookmark = rst.lastModified
+        End If
+        currentFolderID = rst.fields("ID")
+        rst.Close
+        pathElementIDX = pathElementIDX + 1
+    Loop
+    
+    createNewFolderRecordFromPath = currentFolderID
+End Function
+
+
+Public Sub init_by_name(ByRef SD As objSharedDrive, _
+                    ByVal name As String, _
+                    Optional pfID As Long = -1)
+                    
+  
+End Sub
+
+
+Public Sub initByPath(ByRef SD As objSharedDrive, _
+    ByVal path As String)
+    ' processes a path to a folder, adding the relevant parent
+    ' folders to the database if they're not in already
+    Dim folderID As Long
+    folderID = getFolderID(path, SD.getID())
+    
+    If folderID = -1 Then 'couldn't find the folder in the database
+        folderID = createNewFolderRecordFromPath(SD, path)
+    End If
+           
+    Set m_folderRecord = New objDatabaseRecord
+    Call m_folderRecord.initByID("tblFolders", folderID)
+End Sub
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
