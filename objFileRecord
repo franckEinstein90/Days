@@ -1,0 +1,87 @@
+Option Compare Database
+Option Explicit
+
+'Parks Canada File Object
+Const fileTblName = "tblFiles"
+
+
+Private m_dbRecord As objDatabaseRecord
+Private m_fileName As String
+Private m_folderID As Long
+
+
+Public Property Get name() As String
+    name = m_fileName
+End Property
+
+'syncs the information in this file with the information
+'in the database, creates a new file if the file
+'doesn't already exist
+Public Function updateFile(ByRef values As structInputFileInfo, Optional grabID As Long) As Boolean
+'returns true if file needed to be created or updated
+'false if no changes to database
+    Dim rst As DAO.Recordset
+    Dim fileID As Long
+    
+    updateFile = False
+    If m_dbRecord Is Nothing Then
+        Set rst = CurrentDb.OpenRecordset(fileTblName)
+        rst.AddNew
+        rst("FolderID") = m_folderID
+        rst("FileName") = m_fileName
+        rst.update
+        rst.Bookmark = rst.lastModified
+        Set m_dbRecord = New objDatabaseRecord
+        Call m_dbRecord.initByID(fileTblName, rst.fields("ID"))
+        updateFile = True
+    Else
+        Set rst = m_dbRecord.getRecord
+    End If
+    
+    With rst
+        .Edit
+        If values.fields.exists("Size") And values.fields("Size") <> "" Then
+            updateFile = True
+            rst("Size") = stringFileSizeToNumber(values.fields("Size"))
+        End If
+    .update
+    .Close
+    End With
+End Function
+
+
+'creates a new file from supplied information
+'but only if the file doesn't exist already.
+Public Sub add_to_db()
+    
+End Sub
+
+Public Sub initByName(ByVal file_name As String, ByVal folder_id As Long)
+    Dim numOcc As Integer
+
+    Dim rst As DAO.Recordset
+    
+    'remove potential trailing space chars
+    m_fileName = Trim(file_name)
+    m_folderID = folder_id
+    
+    Set rst = CurrentDb.OpenRecordset( _
+        "SELECT ID FROM tblFiles WHERE" _
+        & " tblFiles.[FileName] = '" & strDBProcess(m_fileName) & "'" _
+        & " AND tblFiles.[FolderID] = " & m_folderID & ";")
+    If rst.RecordCount > 0 Then
+        Set m_dbRecord = New objDatabaseRecord
+        Call m_dbRecord.initByID(fileTblName, rst.fields("ID"))
+    End If
+        
+End Sub
+
+Public Sub init_by_id(ByVal file_id As Long)
+
+End Sub
+
+Public Sub init_empty()
+    
+End Sub
+
+
